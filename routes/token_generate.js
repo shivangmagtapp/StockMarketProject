@@ -1,5 +1,8 @@
 // Include the chrome driver 
+var cron = require('node-cron');
+cron.schedule('* */12 * * *', function(){
 require("chromedriver"); 
+var fs = require("fs") 
 var config = require("../config/key.js")
 var KiteConnect = require("kiteconnect").KiteConnect;
 var kc = new KiteConnect({
@@ -25,7 +28,7 @@ function sleep(ms) {
       setTimeout(resolve, ms);
     });
   }  
-// Step 1 - Opening the geeksforgeeks sign in page 
+
 let tabToOpen = 
 	tab.get("https://kite.trade/connect/login?v=3&api_key="+config.api_key); 
 tabToOpen 
@@ -118,7 +121,11 @@ tabToOpen
             kc.generateSession(req_token, config.api_secret)
             .then(function(response) {
                 console.log(response)
-                config.token = response.access_token
+				  fs.writeFile('../config/token.txt',response.access_token, function (err) {
+					if (err) return console.log(err);
+					console.log('Token Updated!');
+				  });
+                
             })
             .catch(function(err) {
                 console.log(err);
@@ -127,4 +134,5 @@ tabToOpen
     })
 	.catch(function (err) { 
 		console.log("Error ", err, " occurred!"); 
-	}); 
+	});
+}); 

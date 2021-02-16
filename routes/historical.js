@@ -1,9 +1,9 @@
 var axios = require("axios")
 var config = require("../config/key.js")
-var cred = require("../config/client_secret.json")
+// var cred = require("../config/client_secret.json")
 var cron = require('node-cron');
-const {promisify} = require("util")
-const { GoogleSpreadsheet } = require('google-spreadsheet');
+// const {promisify} = require("util")
+// const { GoogleSpreadsheet } = require('google-spreadsheet');
 var previous_date = (new Date().getDate()-3).toString()
 var current_date = (new Date().getDate()).toString()
 var current_month = (new Date().getMonth()+1).toString()
@@ -12,7 +12,7 @@ var hour = new Date().getHours().toString()
 var minutes = new Date().getMinutes().toString()
 var fs = require("fs")
 var parse = require('csv-parse');
-const doc = new GoogleSpreadsheet(config.GoogleSpreadsheetID);
+// const doc = new GoogleSpreadsheet(config.GoogleSpreadsheetID);
 if(hour.length==1){
   hour= "0"+hour
 }
@@ -40,43 +40,40 @@ function sleep(ms) {
 function delay() {
   return new Promise(resolve => setTimeout(resolve, 300));
 }
-doc.useServiceAccountAuth({
-  client_email: cred.client_email ,
-  private_key: cred.private_key,
-}).then(async function(){
-    await doc.loadInfo();
-    const sheet=doc.sheetsByIndex[0]
-  
-    sheet.headerValues=['Company_Name', 'Industry','Symbol','Series', 'ISIN_Code','Open', 'High', 'Low','Close', 'Volume'];
-    var csvData = []
+
+  var csvData = []
   fs.createReadStream("../ind_nifty50list2.csv")
     .pipe(parse({delimiter: ':'}))
     .on('data', function(csvrow) {
         csvData.push(csvrow)
     })
     .on('end',async function() {
-    cron.schedule('*/5 * * * *', function(){
-      historical(sheet, csvData)
+    cron.schedule('*/1 * * * *', function(){
+      historical(csvData)
     });
-    
   })
-})
 
 
 
 
 
-async function historical(sheet, csvData){
+async function historical(csvData){
   var arr=[]
   csvData3 = []
+  fs.readFile('../config/token.txt', 'utf8',async function (err,token) {
+    console.log(token)
+    if (err) {
+      return console.log(err);
+    }
   for(var i=1;i<csvData.length;i++){
     await axios.get("https://api.kite.trade/instruments/historical/"+csvData[i][0].split(",")[5]+"/5minute?from="+from+"&"+"to="+to,
       {
       headers: {    'X-Kite-Version': 3,
-        Authorization: 'token '+config.api_key+":"+config.token
+        Authorization: 'token '+config.api_key+":"+token
       }
       }) 
       .then(async function (response) {
+        console.log(response)
       arr.push([response.data.data.candles[response.data.data.candles.length-1][1],response.data.data.candles[response.data.data.candles.length-1][2]
       ,response.data.data.candles[response.data.data.candles.length-1][3],response.data.data.candles[response.data.data.candles.length-1][4],
       response.data.data.candles[response.data.data.candles.length-1][5]])
@@ -84,9 +81,6 @@ async function historical(sheet, csvData){
       console.log(arr.length)
       // await sheet.loadCells('F1:J60');
         // await updateCells(sheet,i,response);
-        
-        
-        
       }).catch(function (err) { 
         arr.push(['','','','',''])
         console.log("Error ", err, " occurred!"); 
@@ -95,13 +89,12 @@ async function historical(sheet, csvData){
       
       }
       console.log(arr)
-      CSVDataEntry(arr, sheet)
+      CSVDataEntry(arr)
 
-      
+    });    
 }
 
-function CSVDataEntry(arr, sheet){
-  sheet.clear()
+function CSVDataEntry(arr){
   fs.createReadStream("../ind_nifty50list.csv")
             .pipe(parse({delimiter: ':'}))
             .on('data',async function(csvrow) {
